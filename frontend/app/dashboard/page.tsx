@@ -4,7 +4,7 @@ import { useState } from 'react';
 import Header from '../components/HeaderDashboard';
 import CropCard from '../components/CropCard';
 import CropDetailView from '../components/CropDetailView';
-import WeatherWidget from '../components/WeatherWidget';
+import WeatherContainer from '../components/WeatherContainer';
 import { mockCrops, mockWeather } from '../lib/mockData';
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
@@ -14,7 +14,7 @@ export default function DashboardPage() {
 
   const expandedCrop = mockCrops.find(crop => crop.id === expandedCropId);
 
-  const t = useTranslations();
+  const t = useTranslations('dashboard');
 
   return (
     <div className="min-h-screen bg-[#0E1A0E]">
@@ -24,7 +24,7 @@ export default function DashboardPage() {
         {/* Welcome Section */}
         <div className="hidden  lg:flex items-center justify-between">
           <div>
-            <h1 className="text-white text-3xl md:text-4xl font-bold mb-2">Hello</h1>
+            <h1 className="tex(t-white text-3xl md:text-4xl font-bold mb-2">{t('title')}</h1>
             <h2 className="text-white text-3xl md:text-4xl font-bold">Priyanshu !</h2>
           </div>
          <Link
@@ -32,7 +32,7 @@ export default function DashboardPage() {
             className="rounded-[7px] border-[0.56px] flex justify-center items-center bg-[#879d7b] border-white py-2 px-4"
           >
             <span>📋</span>
-            <span>AI Assistant</span>
+            <span>{t('actions.ai')}</span>
           </Link>
         </div>
 
@@ -43,43 +43,43 @@ export default function DashboardPage() {
             className="rounded-[7px] border-[0.56px] flex justify-center items-center bg-[#879d7b] border-white py-4"
           >
             <span>🌾</span>
-            <span>My Fields</span>
+            <span>{t('actions.my')}</span>
           </Link>
           <Link
             href="/add-fields"
             className="rounded-[7px] border-[0.56px] flex justify-center items-center bg-[#879d7b] border-white py-4"
           >
             <span>📍</span>
-            <span>Add Fields</span>
+            <span>{t('actions.add')}</span>
           </Link>
           <Link
             href="/soil-reports"
             className="rounded-[7px] border-[0.56px] flex justify-center items-center bg-[#879d7b] border-white py-4"
           >
             <span>📋</span>
-            <span>Soil Reports</span>
+            <span>{t('actions.soil')}</span>
           </Link>
           <Link
             href="/soil-reports"
             className="rounded-[7px] border-[0.56px] flex justify-center items-center bg-[#879d7b] border-white py-4 lg:hidden"
           >
             <span>📋</span>
-            <span>AI Assistant</span>
+            <span>{t('actions.ai')}</span>
           </Link>
         </div>
 
         {/* Weather Widget */}
-        <WeatherWidget weather={mockWeather} />
+        <WeatherContainer/>
 
         {/* Crop Health Section */}
         <div className="bg-[#d6d9b4] rounded-md px-1.5 py-0.5 shadow-[0_0_3.54_rgba(0,0,0,0.5)]">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2">
               <span className="text-2xl">🌱</span>
-              <h2 className="text-gray-900 text-xl font-bold">Crop Health</h2>
+              <h2 className="text-gray-900 text-xl font-bold">{t('crop')}</h2>
             </div>
             <button className="bg-gray-800 hover:bg-gray-700 text-white px-6 py-2 rounded-md font-medium transition-colors">
-              AI Assistant
+              {t('actions.ai')}
             </button>
           </div>
         </div>
@@ -91,7 +91,7 @@ export default function DashboardPage() {
               onClick={() => setExpandedCropId(null)}
               className="mb-4 text-white hover:text-[#495643] transition-colors"
             >
-              ← Back to all crops
+              ← {t('back')}
             </button>
             <CropDetailView crop={expandedCrop} />
           </div>
