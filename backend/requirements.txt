@@ -9,3 +9,15 @@ pandas
 numpy
 scikit-learn
 tensorflow
+python-multipart 
+python-jose[cryptography]
+passlib[bcrypt]
+catboost
+langchain
+langchain-community
+langchain-openai
+langchain-huggingface
+faiss-cpu
+sentence-transformers
+joblib
+pillow
