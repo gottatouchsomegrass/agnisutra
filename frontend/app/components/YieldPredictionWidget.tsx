@@ -16,21 +16,20 @@ import { toast } from "sonner";
 
 type YieldForm = {
   crop: string;
-  nitrogen: number;
-  phosphorus: number;
-  potassium: number;
-  mean_temp: number;
-  temp_flowering: number;
-  seasonal_rain: number;
-  rain_flowering: number;
-  humidity: number;
+  target_yield: number;
+  soil_N: number;
+  soil_P: number;
+  soil_K: number;
+  temperature: number;
+  ph: number;
+  moisture: number;
 };
 
-type YieldResult = {
-  predicted_yield: number;
+type RecommendationResult = {
+  recommended_N: number;
+  recommended_P: number;
+  recommended_K: number;
   unit: string;
-  alerts: string[];
-  benchmark_comparison: string;
 };
 
 const CROPS = [
@@ -48,7 +47,7 @@ const CROPS = [
 
 export default function YieldPredictionWidget() {
   const { register, handleSubmit, setValue, watch } = useForm<YieldForm>();
-  const [result, setResult] = useState<YieldResult | null>(null);
+  const [result, setResult] = useState<RecommendationResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [fetchingData, setFetchingData] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
@@ -130,11 +129,8 @@ export default function YieldPredictionWidget() {
             rain_flowering_mm: 100,
             humidity_mean_pct: weatherRes.data.humidity,
           };
-          setValue("mean_temp", stats.mean_temp_gs_C);
-          setValue("temp_flowering", stats.temp_flowering_C);
-          setValue("seasonal_rain", stats.seasonal_rain_mm);
-          setValue("rain_flowering", stats.rain_flowering_mm);
-          setValue("humidity", stats.humidity_mean_pct);
+          setValue("temperature", stats.mean_temp_gs_C);
+          setValue("moisture", stats.humidity_mean_pct); // Using humidity as proxy for moisture if sensor fails
         } catch (e) {
           console.error("Weather fetch failed", e);
           // Fallback to random realistic values if API fails
@@ -155,17 +151,8 @@ export default function YieldPredictionWidget() {
             },
           });
 
-          setValue("mean_temp", Number(mockTemp.toFixed(1)));
-          setValue("temp_flowering", Number((mockTemp + 2).toFixed(1)));
-          setValue(
-            "seasonal_rain",
-            Number((500 + Math.random() * 200).toFixed(0))
-          );
-          setValue(
-            "rain_flowering",
-            Number((100 + Math.random() * 50).toFixed(0))
-          );
-          setValue("humidity", Number(mockHumidity.toFixed(0)));
+          setValue("temperature", Number(mockTemp.toFixed(1)));
+          setValue("moisture", Number(mockHumidity.toFixed(0)));
         }
 
         // 2. Fetch NDVI
@@ -224,68 +211,54 @@ export default function YieldPredictionWidget() {
       // Construct the full payload expected by backend
       const payload = {
         crop: data.crop,
-        // User inputs - Ensure they are numbers
-        soil_N_status_kg_ha: Number(data.nitrogen),
-        soil_P_status_kg_ha: Number(data.phosphorus),
-        soil_K_status_kg_ha: Number(data.potassium),
-        fert_N_kg_ha: 0, // Assuming user input is total available
-        fert_P_kg_ha: 0,
-        fert_K_kg_ha: 0,
-
-        // User inputs (Weather Stats)
-        mean_temp_gs_C: Number(data.mean_temp),
-        temp_flowering_C: Number(data.temp_flowering),
-        seasonal_rain_mm: Number(data.seasonal_rain),
-        rain_flowering_mm: Number(data.rain_flowering),
-        humidity_mean_pct: Number(data.humidity),
-
-        soil_pH: 6.5, // Constant
-        clay_pct: 20.0, // Constant
-        irrigation_events: 5, // Constant
-        ndvi_flowering: ndvi.value,
-        ndvi_peak: ndvi.peak,
-        ndvi_veg_slope: ndvi.slope,
-        maturity_days: 120,
-        soil_moisture_pct: soilMoisture,
+        target_yield: Number(data.target_yield),
+        soil_N: Number(data.soil_N),
+        soil_P: Number(data.soil_P),
+        soil_K: Number(data.soil_K),
+        temperature: Number(data.temperature),
+        ph: 6.5, // Default or add input
+        moisture: Number(data.moisture),
       };
 
       console.log("Sending payload:", payload); // Debugging
 
-      const response = await api.post("/krishi-saathi/predict", payload);
+      const response = await api.post("/krishi-saathi/recommend", payload);
       setResult(response.data);
 
       // Save to localStorage for ChatWidget to access
       if (typeof window !== "undefined") {
         const yieldContext = {
           crop: payload.crop,
-          predicted_yield: response.data.predicted_yield,
+          recommended_N: response.data.recommended_N,
+          recommended_P: response.data.recommended_P,
+          recommended_K: response.data.recommended_K,
           unit: response.data.unit,
           features: {
-            nitrogen: payload.soil_N_status_kg_ha,
-            phosphorus: payload.soil_P_status_kg_ha,
-            potassium: payload.soil_K_status_kg_ha,
-            rainfall: payload.seasonal_rain_mm,
-            temperature: payload.mean_temp_gs_C,
-            soil_moisture: payload.soil_moisture_pct,
+            target_yield: payload.target_yield,
+            soil_N: payload.soil_N,
+            soil_P: payload.soil_P,
+            soil_K: payload.soil_K,
+            temperature: payload.temperature,
+            moisture: payload.moisture,
           },
         };
         localStorage.setItem(
           "lastYieldPrediction",
           JSON.stringify(yieldContext)
         );
-        toast.success("Prediction saved for AI Advisor");
+        toast.success("Recommendation saved for AI Advisor");
       }
 
-      toast.success("Prediction Calculated!");
+      toast.success("Fertilizer Recommendation Calculated!");
     } catch (error: unknown) {
       console.error("Prediction error:", error);
-      // @ts-ignore
+      // @ts-expect-error
       if (error.response && error.response.status === 422) {
-        // @ts-ignore
+        // @ts-expect-error
         console.error("Validation Error Details:", error.response.data);
         toast.error("Invalid input data. Please check your entries.");
       } else {
-        toast.error("Failed to get prediction");
+        toast.error("Failed to get recommendation");
       }
     } finally {
       setLoading(false);
@@ -297,7 +270,7 @@ export default function YieldPredictionWidget() {
       <div className="flex items-center justify-between mb-6">
         <h3 className="text-xl font-bold text-white flex items-center gap-2">
           <Sprout className="text-[#4ade80]" size={24} />
-          Yield Predictor
+          Fertilizer Recommender
         </h3>
         {fetchingData ? (
           <div className="flex items-center gap-2 text-xs text-[#4ade80]">
@@ -384,43 +357,55 @@ export default function YieldPredictionWidget() {
             <input type="hidden" {...register("crop", { required: true })} />
           </div>
 
-          {/* NPK Inputs */}
+          {/* Target Yield & Soil Inputs */}
           <div className="space-y-3">
             <label className="text-gray-300 text-xs font-bold uppercase tracking-wider block">
-              Fertilizer (kg/ha)
+              Soil & Target
             </label>
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 gap-4">
               <div className="relative group">
                 <label className="text-[#4ade80] text-[10px] font-bold absolute -top-2 left-2 bg-[#132a13] px-1">
-                  Nitrogen
+                  Target Yield (t/ha)
                 </label>
                 <input
                   type="number"
-                  {...register("nitrogen", { required: true, min: 0 })}
+                  step="0.1"
+                  {...register("target_yield", { required: true, min: 0 })}
                   className="w-full bg-[#0E1A0E]/60 text-white border border-[#879d7b]/30 rounded-lg p-3 text-center focus:border-[#4ade80] outline-none transition-colors"
-                  placeholder="0"
+                  placeholder="2.5"
                 />
               </div>
               <div className="relative group">
                 <label className="text-[#4ade80] text-[10px] font-bold absolute -top-2 left-2 bg-[#132a13] px-1">
-                  Phosphorus
+                  Soil Nitrogen (kg/ha)
                 </label>
                 <input
                   type="number"
-                  {...register("phosphorus", { required: true, min: 0 })}
+                  {...register("soil_N", { required: true, min: 0 })}
                   className="w-full bg-[#0E1A0E]/60 text-white border border-[#879d7b]/30 rounded-lg p-3 text-center focus:border-[#4ade80] outline-none transition-colors"
-                  placeholder="0"
+                  placeholder="150"
                 />
               </div>
               <div className="relative group">
                 <label className="text-[#4ade80] text-[10px] font-bold absolute -top-2 left-2 bg-[#132a13] px-1">
-                  Potassium
+                  Soil Phosphorus (kg/ha)
                 </label>
                 <input
                   type="number"
-                  {...register("potassium", { required: true, min: 0 })}
+                  {...register("soil_P", { required: true, min: 0 })}
                   className="w-full bg-[#0E1A0E]/60 text-white border border-[#879d7b]/30 rounded-lg p-3 text-center focus:border-[#4ade80] outline-none transition-colors"
-                  placeholder="0"
+                  placeholder="20"
+                />
+              </div>
+              <div className="relative group">
+                <label className="text-[#4ade80] text-[10px] font-bold absolute -top-2 left-2 bg-[#132a13] px-1">
+                  Soil Potassium (kg/ha)
+                </label>
+                <input
+                  type="number"
+                  {...register("soil_K", { required: true, min: 0 })}
+                  className="w-full bg-[#0E1A0E]/60 text-white border border-[#879d7b]/30 rounded-lg p-3 text-center focus:border-[#4ade80] outline-none transition-colors"
+                  placeholder="200"
                 />
               </div>
             </div>
@@ -445,51 +430,18 @@ export default function YieldPredictionWidget() {
                   <input
                     type="number"
                     step="0.1"
-                    {...register("mean_temp", { required: true })}
+                    {...register("temperature", { required: true })}
                     className="w-full bg-[#0E1A0E]/60 text-white border border-[#879d7b]/30 rounded-lg p-2 text-sm focus:border-[#4ade80] outline-none"
                   />
                 </div>
                 <div className="relative group">
                   <label className="text-gray-400 text-[9px] font-bold absolute -top-2 left-2 bg-[#132a13] px-1">
-                    Flowering Temp (°C)
-                  </label>
-                  <input
-                    type="number"
-                    step="0.1"
-                    {...register("temp_flowering", { required: true })}
-                    className="w-full bg-[#0E1A0E]/60 text-white border border-[#879d7b]/30 rounded-lg p-2 text-sm focus:border-[#4ade80] outline-none"
-                  />
-                </div>
-                <div className="relative group">
-                  <label className="text-gray-400 text-[9px] font-bold absolute -top-2 left-2 bg-[#132a13] px-1">
-                    Seasonal Rain (mm)
+                    Moisture (%)
                   </label>
                   <input
                     type="number"
                     step="1"
-                    {...register("seasonal_rain", { required: true })}
-                    className="w-full bg-[#0E1A0E]/60 text-white border border-[#879d7b]/30 rounded-lg p-2 text-sm focus:border-[#4ade80] outline-none"
-                  />
-                </div>
-                <div className="relative group">
-                  <label className="text-gray-400 text-[9px] font-bold absolute -top-2 left-2 bg-[#132a13] px-1">
-                    Flowering Rain (mm)
-                  </label>
-                  <input
-                    type="number"
-                    step="1"
-                    {...register("rain_flowering", { required: true })}
-                    className="w-full bg-[#0E1A0E]/60 text-white border border-[#879d7b]/30 rounded-lg p-2 text-sm focus:border-[#4ade80] outline-none"
-                  />
-                </div>
-                <div className="relative group col-span-2">
-                  <label className="text-gray-400 text-[9px] font-bold absolute -top-2 left-2 bg-[#132a13] px-1">
-                    Humidity (%)
-                  </label>
-                  <input
-                    type="number"
-                    step="1"
-                    {...register("humidity", { required: true })}
+                    {...register("moisture", { required: true })}
                     className="w-full bg-[#0E1A0E]/60 text-white border border-[#879d7b]/30 rounded-lg p-2 text-sm focus:border-[#4ade80] outline-none"
                   />
                 </div>
@@ -508,7 +460,7 @@ export default function YieldPredictionWidget() {
               ) : (
                 <Sprout size={20} />
               )}
-              Predict Yield Potential
+              Get Fertilizer Recommendation
             </button>
           </div>
         </form>
@@ -517,66 +469,34 @@ export default function YieldPredictionWidget() {
           <div className="bg-[#0E1A0E] p-6 rounded-xl border border-[#879d7b]/50 text-center relative overflow-hidden group">
             <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-[#4ade80] to-transparent opacity-50 group-hover:opacity-100 transition-opacity"></div>
             <span className="text-gray-400 text-xs uppercase tracking-widest font-medium">
-              Estimated Yield
+              Recommended Fertilizer
             </span>
-            <div className="text-6xl font-bold text-[#4ade80] my-4 tracking-tighter">
-              {result.predicted_yield.toFixed(2)}{" "}
-              <span className="text-xl text-gray-500 font-normal">
-                {result.unit}
-              </span>
-            </div>
-            <p className="text-sm text-gray-300 italic border-t border-white/5 pt-3">
-              {result.benchmark_comparison}
-            </p>
-          </div>
 
-          {result.alerts.length > 0 && (
-            <div
-              className={`p-4 rounded-xl border ${
-                result.alerts[0].includes("✅")
-                  ? "bg-green-500/10 border-green-500/30"
-                  : "bg-yellow-500/10 border-yellow-500/30"
-              }`}
-            >
-              <h4
-                className={`${
-                  result.alerts[0].includes("✅")
-                    ? "text-green-500"
-                    : "text-yellow-500"
-                } font-bold text-sm mb-2 flex items-center gap-2`}
-              >
-                {result.alerts[0].includes("✅") ? (
-                  <>
-                    <span>✅</span> Status
-                  </>
-                ) : (
-                  <>
-                    <span className="animate-pulse">⚠️</span> Risk Alerts
-                  </>
-                )}
-              </h4>
-              <ul
-                className={`text-xs space-y-2 ${
-                  result.alerts[0].includes("✅")
-                    ? "text-green-200/80"
-                    : "text-yellow-200/80"
-                }`}
-              >
-                {result.alerts.map((alert, i) => (
-                  <li key={i} className="flex items-start gap-2">
-                    <span
-                      className={`mt-1 w-1 h-1 rounded-full shrink-0 ${
-                        result.alerts[0].includes("✅")
-                          ? "bg-green-500"
-                          : "bg-yellow-500"
-                      }`}
-                    ></span>
-                    <span>{alert}</span>
-                  </li>
-                ))}
-              </ul>
+            <div className="grid grid-cols-3 gap-4 mt-4">
+              <div className="flex flex-col items-center">
+                <span className="text-2xl font-bold text-[#4ade80]">
+                  {result.recommended_N}
+                </span>
+                <span className="text-xs text-gray-400">Nitrogen (N)</span>
+              </div>
+              <div className="flex flex-col items-center">
+                <span className="text-2xl font-bold text-[#4ade80]">
+                  {result.recommended_P}
+                </span>
+                <span className="text-xs text-gray-400">Phosphorus (P)</span>
+              </div>
+              <div className="flex flex-col items-center">
+                <span className="text-2xl font-bold text-[#4ade80]">
+                  {result.recommended_K}
+                </span>
+                <span className="text-xs text-gray-400">Potassium (K)</span>
+              </div>
             </div>
-          )}
+
+            <div className="text-center mt-2 text-sm text-gray-500">
+              Unit: {result.unit}
+            </div>
+          </div>
 
           <div className="mt-auto">
             <button

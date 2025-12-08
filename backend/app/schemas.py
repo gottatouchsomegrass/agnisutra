@@ -86,15 +86,15 @@ class KrishiYieldInput(BaseModel):
     seasonal_rain_mm: float
     rain_flowering_mm: float
     humidity_mean_pct: float
-    soil_pH: float
-    clay_pct: float
+    soil_pH: float =6.5
+    clay_pct: float =30
     soil_N_status_kg_ha: float
     soil_P_status_kg_ha: float
     soil_K_status_kg_ha: float
     fert_N_kg_ha: float
     fert_P_kg_ha: float
     fert_K_kg_ha: float
-    irrigation_events: int
+    irrigation_events: int=3
     ndvi_flowering: float
     ndvi_peak: float
     ndvi_veg_slope: float
@@ -109,6 +109,24 @@ class KrishiYieldOut(BaseModel):
     unit: str = "t/ha"
     alerts: list[str] = []
     benchmark_comparison: Optional[str] = None
+
+
+class FertilizerRecommendationInput(BaseModel):
+    crop: str
+    target_yield: float
+    soil_N: float
+    soil_P: float
+    soil_K: float
+    temperature: float
+    ph: float
+    moisture: float
+
+
+class FertilizerRecommendationOutput(BaseModel):
+    recommended_N: float
+    recommended_P: float
+    recommended_K: float
+    unit: str = "kg/ha"
 
 
 class KrishiChatInput(BaseModel):

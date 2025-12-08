@@ -17,6 +17,7 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+*.h5
 
 # Backend specific
 backend/venv/

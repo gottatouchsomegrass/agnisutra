@@ -11,19 +11,11 @@ from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from typing import Dict, Any, Optional
 from .. import schemas
+from ..ml import ml_models
 
 from ..krishi_saathi_llm import KrishiSaathiAdvisor
 
 router = APIRouter()
-
-# Load Model
-MODEL_PATH = os.path.join(os.path.dirname(__file__), "../final_yield_model_CatBoost.joblib")
-try:
-    yield_model = joblib.load(MODEL_PATH)
-    print("✅ CatBoost Model loaded successfully!")
-except Exception as e:
-    print(f"❌ Error loading CatBoost model: {e}")
-    yield_model = None
 
 # Initialize Advisor
 try:
@@ -325,47 +317,69 @@ def get_yield_prediction_get(
 
 @router.post("/predict", response_model=schemas.KrishiYieldOut)
 def predict_yield(data: schemas.KrishiYieldInput):
-    if not yield_model:
-        raise HTTPException(status_code=500, detail="Model not loaded")
-
-    # Convert input to DataFrame
-    input_dict = data.dict()
+    # NOTE: The Yield Prediction Model is currently being replaced by the Fertilizer Recommender.
+    # For now, we return a dummy response or raise an error.
+    # raise HTTPException(status_code=503, detail="Yield Prediction is temporarily unavailable. Please use /recommend for fertilizer optimization.")
     
-    df = pd.DataFrame([input_dict])
-    
-    # Ensure categorical columns are strings
-    for col in ["crop"]:
-        if col in df.columns:
-            df[col] = df[col].astype(str)
-
-    try:
-        # Reorder columns to match model
-        df = df[yield_model.feature_names_]
-        prediction = float(yield_model.predict(df)[0])
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Prediction error: {str(e)}")
-
-    # Alerts
-    alerts = generate_weather_alerts(
-        data.crop, 
-        data.temp_flowering_C, 
-        data.rain_flowering_mm, 
-        data.humidity_mean_pct
-    )
-
-    # Benchmark
-    bench = CROP_BENCHMARK_YIELD.get(data.crop.lower())
-    benchmark_msg = None
-    if bench:
-        ratio = prediction / bench
-        benchmark_msg = f"Typical: {bench:.2f} t/ha. Your yield is {ratio*100:.1f}% of benchmark."
-
+    # Fallback: Return a dummy yield based on benchmark for now so frontend doesn't crash
+    bench = CROP_BENCHMARK_YIELD.get(data.crop.lower(), 2.0)
     return {
-        "predicted_yield": round(prediction, 2),
+        "predicted_yield": bench,
         "unit": "t/ha",
-        "alerts": alerts,
-        "benchmark_comparison": benchmark_msg
+        "alerts": ["Yield Model is under maintenance. Showing benchmark value."],
+        "benchmark_comparison": "Model update in progress."
     }
+
+@router.post("/recommend", response_model=schemas.FertilizerRecommendationOutput)
+def recommend_fertilizer(data: schemas.FertilizerRecommendationInput):
+    model = ml_models.get("fertilizer_model")
+    preprocessor = ml_models.get("preprocessor")
+
+    if not model:
+        raise HTTPException(status_code=500, detail="Fertilizer Model not loaded")
+    if not preprocessor:
+        raise HTTPException(status_code=500, detail="Preprocessor not loaded")
+
+    # Prepare DataFrame matching training columns:
+    # ['crop', 'yield_t_ha', 'soil_N_status_kg_ha', 'soil_P_status_kg_ha', 'soil_K_status_kg_ha', 'mean_temp_gs_C', 'soil_pH', 'soil_moisture_pct']
+    
+    input_data = {
+        "crop": [data.crop],
+        "yield_t_ha": [data.target_yield],
+        "soil_N_status_kg_ha": [data.soil_N],
+        "soil_P_status_kg_ha": [data.soil_P],
+        "soil_K_status_kg_ha": [data.soil_K],
+        "mean_temp_gs_C": [data.temperature],
+        "soil_pH": [data.ph],
+        "soil_moisture_pct": [data.moisture]
+    }
+    
+    df = pd.DataFrame(input_data)
+    
+    try:
+        # 1. Preprocess
+        X_transformed = preprocessor.transform(df)
+        
+        # 2. Predict (Returns [[N, P, K]])
+        prediction = model.predict(X_transformed)
+        n_val, p_val, k_val = prediction[0]
+        
+        # Ensure non-negative
+        n_val = max(0.0, float(n_val))
+        p_val = max(0.0, float(p_val))
+        k_val = max(0.0, float(k_val))
+        
+        return {
+            "recommended_N": round(n_val, 2),
+            "recommended_P": round(p_val, 2),
+            "recommended_K": round(k_val, 2),
+            "unit": "kg/ha"
+        }
+        
+    except Exception as e:
+        print(f"Recommendation Error: {e}")
+        raise HTTPException(status_code=400, detail=f"Recommendation error: {str(e)}")
+
 
 @router.post("/chat", response_model=schemas.KrishiChatOut)
 def chat_advisor(data: schemas.KrishiChatInput):

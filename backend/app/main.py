@@ -1,6 +1,8 @@
 from contextlib import asynccontextmanager
 import pickle
 import joblib
+import tensorflow as tf
+from tensorflow.keras.layers import InputLayer
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
@@ -11,26 +13,52 @@ from .routers import auth, iot, krishi_saathi, disease
 from .ml import ml_models
 from .manager import manager
 
+# Fix for Keras Version Mismatch (batch_shape vs batch_input_shape)
+class PatchedInputLayer(InputLayer):
+    def __init__(self, *args, **kwargs):
+        if 'batch_shape' in kwargs:
+            kwargs['batch_input_shape'] = kwargs.pop('batch_shape')
+        super().__init__(*args, **kwargs)
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Load the ML model
     try:
         import os
         current_dir = os.path.dirname(os.path.abspath(__file__))
-        model_path = os.path.join(current_dir, "final_yield_model_CatBoost.joblib")
         
+        # 1. Load Keras Model (Fertilizer Recommender)
+        model_path = os.path.join(current_dir, "final_model.keras")
         if os.path.exists(model_path):
-            ml_models["yield_model"] = joblib.load(model_path)
-            print(f"✅ CatBoost Model loaded successfully from {model_path}")
+            # compile=False is often safer for inference-only loading to avoid optimizer version mismatches
+            # custom_objects={'InputLayer': PatchedInputLayer} handles the version mismatch
+            ml_models["fertilizer_model"] = tf.keras.models.load_model(
+                model_path, 
+                compile=False,
+                custom_objects={'InputLayer': PatchedInputLayer}
+            )
+            print(f"✅ Keras Fertilizer Model loaded successfully from {model_path}")
         else:
             print(f"❌ Model file not found at {model_path}")
-            # Try fallback to relative path just in case
-            ml_models["yield_model"] = joblib.load("app/final_yield_model_CatBoost.joblib")
-            print("✅ CatBoost Model loaded successfully (fallback path).")
+            
+        # 2. Load Preprocessor (Required for Keras model)
+        # Look in current dir first, then project root
+        preprocessor_path = os.path.join(current_dir, "dl_preprocessor.joblib")
+        if not os.path.exists(preprocessor_path):
+             # Fallback to project root (../../dl_preprocessor.joblib)
+             preprocessor_path = os.path.abspath(os.path.join(current_dir, "../../dl_preprocessor.joblib"))
+        
+        if os.path.exists(preprocessor_path):
+            ml_models["preprocessor"] = joblib.load(preprocessor_path)
+            print(f"✅ Preprocessor loaded successfully from {preprocessor_path}")
+        else:
+            print(f"❌ Preprocessor file not found at {preprocessor_path}")
+            ml_models["preprocessor"] = None
             
     except Exception as e:
         print(f"Error loading ML model: {e}")
-        ml_models["yield_model"] = None
+        ml_models["fertilizer_model"] = None
+        ml_models["preprocessor"] = None
     
     # Start Scheduler
     scheduler = AsyncIOScheduler()
