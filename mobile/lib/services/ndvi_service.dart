@@ -1,33 +1,39 @@
 import 'package:dio/dio.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../constants.dart';
 
 class NdviService {
-  final Dio _dio = Dio();
-  final FlutterSecureStorage _storage = const FlutterSecureStorage();
+  // Replace with your backend URL (use 10.0.2.2 for Android emulator to access localhost)
+  static const String baseUrl = AppConstants.baseUrl + '/krishi-saathi';
 
-  Future<Map<String, dynamic>?> getNdviData(double lat, double lon) async {
+  final Dio _dio = Dio(
+    BaseOptions(
+      baseUrl: baseUrl,
+      connectTimeout: const Duration(seconds: 10),
+      receiveTimeout: const Duration(seconds: 10),
+    ),
+  );
+
+  Future<Map<String, dynamic>> fetchNdvi(double lat, double lon) async {
     try {
-      String? token = await _storage.read(key: 'access_token');
-
-      final response = await _dio.post(
-        '${AppConstants.baseUrl}/krishi-saathi/ndvi',
-        data: {"lat": lat, "lon": lon},
-        options: Options(
-          headers: {
-            'Authorization': 'Bearer $token',
-            'Content-Type': 'application/json',
-          },
-        ),
+      final response = await _dio.get(
+        '/ndvi',
+        queryParameters: {'lat': lat, 'lon': lon},
       );
 
       if (response.statusCode == 200) {
-        return response.data;
+        return response.data as Map<String, dynamic>;
+      } else {
+        throw Exception('Failed to load NDVI data: ${response.statusCode}');
       }
-      return null;
+    } on DioException catch (e) {
+      // Handle Dio-specific errors (timeout, connection refused, etc.)
+      if (e.response != null) {
+        throw Exception('Server error: ${e.response?.data ?? e.message}');
+      } else {
+        throw Exception('Network error: ${e.message}');
+      }
     } catch (e) {
-      print('NDVI Service Error: $e');
-      return null;
+      throw Exception('Error fetching NDVI: $e');
     }
   }
 }
