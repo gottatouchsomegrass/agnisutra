@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useTranslations } from "next-intl";
 import { useForm } from "react-hook-form";
 import api from "../services/api";
 import {
@@ -9,7 +10,6 @@ import {
   Droplets,
   Thermometer,
   MapPin,
-  ArrowRight,
   RefreshCw,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -46,6 +46,7 @@ const CROPS = [
 ];
 
 export default function YieldPredictionWidget() {
+  const t = useTranslations("yield");
   const { register, handleSubmit, setValue, watch } = useForm<YieldForm>();
   const [result, setResult] = useState<RecommendationResult | null>(null);
   const [loading, setLoading] = useState(false);
@@ -88,14 +89,14 @@ export default function YieldPredictionWidget() {
           // Default to a farming region in India (e.g., Madhya Pradesh)
           setLocation({ lat: 23.1815, lon: 79.9864 });
           toast.info(
-            "Using default location (allow location access for better accuracy)"
+            t("defaultLocation")
           );
         }
       );
     } else {
       setLocation({ lat: 23.1815, lon: 79.9864 });
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     if (!location) return;
@@ -289,7 +290,7 @@ export default function YieldPredictionWidget() {
       <div className="flex items-center justify-between mb-6">
         <h3 className="text-xl font-bold text-white flex items-center gap-2">
           <Sprout className="text-[#4ade80]" size={24} />
-          Fertilizer Recommender
+          {t("title")}
         </h3>
         {fetchingData ? (
           <div className="flex items-center gap-2 text-xs text-[#4ade80]">
@@ -312,7 +313,7 @@ export default function YieldPredictionWidget() {
             className="text-orange-400 mb-1 group-hover:scale-110 transition-transform"
           />
           <span className="text-[10px] uppercase tracking-wider text-gray-400">
-            Temp
+            {t("temp")}
           </span>
           <span className="text-sm font-bold text-white">
             {weather.temp.toFixed(1)}°C
@@ -324,7 +325,7 @@ export default function YieldPredictionWidget() {
             className="text-blue-400 mb-1 group-hover:scale-110 transition-transform"
           />
           <span className="text-[10px] uppercase tracking-wider text-gray-400">
-            Moisture
+            {t("moisture")}
           </span>
           <span className="text-sm font-bold text-white">
             {soilMoisture.toFixed(1)}%
@@ -352,7 +353,7 @@ export default function YieldPredictionWidget() {
           {/* Crop Selection */}
           <div>
             <label className="text-gray-300 text-xs font-bold uppercase tracking-wider mb-3 block">
-              Select Crop
+              {t("selectCrop")}
             </label>
             <div className="grid grid-cols-5 gap-2">
               {CROPS.map((c) => (
@@ -368,7 +369,7 @@ export default function YieldPredictionWidget() {
                 >
                   <span className="text-xl">{c.icon}</span>
                   <span className="text-[9px] font-bold truncate w-full text-center">
-                    {c.name}
+                    {t(`crops.${c.id}`)}
                   </span>
                 </button>
               ))}
@@ -379,12 +380,12 @@ export default function YieldPredictionWidget() {
           {/* Target Yield & Soil Inputs */}
           <div className="space-y-3">
             <label className="text-gray-300 text-xs font-bold uppercase tracking-wider block">
-              Target Yield
+              {t("targetYield")}
             </label>
             <div className="grid grid-cols-1 gap-4">
               <div className="relative group">
                 <label className="text-[#4ade80] text-[10px] font-bold absolute -top-2 left-2 bg-[#132a13] px-1">
-                  Target Yield (t/ha)
+                  {t("targetYield")}
                 </label>
                 <input
                   type="number"
@@ -417,14 +418,14 @@ export default function YieldPredictionWidget() {
               onClick={() => setShowAdvanced(!showAdvanced)}
               className="text-xs text-[#4ade80] hover:underline flex items-center gap-1"
             >
-              {showAdvanced ? "Hide" : "Show"} Advanced Weather Data
+              {showAdvanced ? "Hide" : "Show"} {t("advanced")}
             </button>
 
             {showAdvanced && (
               <div className="grid grid-cols-2 gap-3 animate-in fade-in slide-in-from-top-2">
                 <div className="relative group">
                   <label className="text-gray-400 text-[9px] font-bold absolute -top-2 left-2 bg-[#132a13] px-1">
-                    Mean Temp (°C)
+                    {t("temp")}
                   </label>
                   <input
                     type="number"
@@ -435,7 +436,7 @@ export default function YieldPredictionWidget() {
                 </div>
                 <div className="relative group">
                   <label className="text-gray-400 text-[9px] font-bold absolute -top-2 left-2 bg-[#132a13] px-1">
-                    Moisture (%)
+                    {t("moisture")}
                   </label>
                   <input
                     type="number"
@@ -459,7 +460,7 @@ export default function YieldPredictionWidget() {
               ) : (
                 <Sprout size={20} />
               )}
-              Get Fertilizer Recommendation
+              {t("getRecommendation")}
             </button>
           </div>
         </form>
@@ -468,7 +469,7 @@ export default function YieldPredictionWidget() {
           <div className="bg-[#0E1A0E] p-6 rounded-xl border border-[#879d7b]/50 text-center relative overflow-hidden group">
             <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-[#4ade80] to-transparent opacity-50 group-hover:opacity-100 transition-opacity"></div>
             <span className="text-gray-400 text-xs uppercase tracking-widest font-medium">
-              Recommended Fertilizer
+              {t("recommended")}
             </span>
 
             <div className="grid grid-cols-3 gap-4 mt-4">
@@ -476,19 +477,19 @@ export default function YieldPredictionWidget() {
                 <span className="text-2xl font-bold text-[#4ade80]">
                   {result.recommended_N}
                 </span>
-                <span className="text-xs text-gray-400">Nitrogen (N)</span>
+                <span className="text-xs text-gray-400">{t("nitrogen")}</span>
               </div>
               <div className="flex flex-col items-center">
                 <span className="text-2xl font-bold text-[#4ade80]">
                   {result.recommended_P}
                 </span>
-                <span className="text-xs text-gray-400">Phosphorus (P)</span>
+                <span className="text-xs text-gray-400">{t("phosphorus")}</span>
               </div>
               <div className="flex flex-col items-center">
                 <span className="text-2xl font-bold text-[#4ade80]">
                   {result.recommended_K}
                 </span>
-                <span className="text-xs text-gray-400">Potassium (K)</span>
+                <span className="text-xs text-gray-400">{t("potassium")}</span>
               </div>
             </div>
 
@@ -503,7 +504,7 @@ export default function YieldPredictionWidget() {
               className="w-full flex items-center justify-center gap-2 text-gray-400 hover:text-white text-sm py-3 hover:bg-white/5 rounded-lg transition-colors"
             >
               <RefreshCw size={14} />
-              Calculate Again
+              {t("reset")}
             </button>
           </div>
         </div>

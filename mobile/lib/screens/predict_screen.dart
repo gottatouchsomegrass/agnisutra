@@ -20,9 +20,21 @@ class _PredictScreenState extends State<PredictScreen> {
   double _phosphorus = 50.0;
   double _potassium = 50.0;
   double _ph = 6.5;
-  String _soilType = 'Alluvial';
+  double _humidity = 60.0;
+  String _crop = 'Rice';
 
-  final List<String> _soilTypes = ['Red', 'Black', 'Alluvial', 'Clay', 'Sandy'];
+  final List<String> _crops = [
+    'Rice',
+    'Wheat',
+    'Maize',
+    'Cotton',
+    'Sugarcane',
+    'Soybean',
+    'Groundnut',
+    'Mustard',
+    'Sunflower',
+    'Potato'
+  ];
 
   bool _isLoading = false;
   Map<String, dynamic>? _predictionResult;
@@ -33,17 +45,16 @@ class _PredictScreenState extends State<PredictScreen> {
       _predictionResult = null;
     });
 
-    final formData = {
-      'rainfall': _rainfall,
-      'temperature': _temperature,
-      'nitrogen': _nitrogen,
-      'phosphorus': _phosphorus,
-      'potassium': _potassium,
-      'ph': _ph,
-      'soil_type': _soilType,
-    };
-
-    final result = await _yieldService.getPrediction(formData);
+    final result = await _yieldService.getYieldPrediction(
+      nitrogen: _nitrogen,
+      phosphorus: _phosphorus,
+      potassium: _potassium,
+      temperature: _temperature,
+      humidity: _humidity,
+      ph: _ph,
+      rainfall: _rainfall,
+      crop: _crop,
+    );
 
     setState(() {
       _isLoading = false;
@@ -77,6 +88,23 @@ class _PredictScreenState extends State<PredictScreen> {
             ),
             const SizedBox(height: 16),
 
+            DropdownButtonFormField<String>(
+              value: _crop,
+              decoration: const InputDecoration(labelText: 'Select Crop'),
+              items: _crops.map((String value) {
+                return DropdownMenuItem<String>(
+                  value: value,
+                  child: Text(value),
+                );
+              }).toList(),
+              onChanged: (newValue) {
+                setState(() {
+                  _crop = newValue!;
+                });
+              },
+            ),
+            const SizedBox(height: 16),
+
             _buildSlider(
               'Rainfall (mm)',
               _rainfall,
@@ -90,6 +118,13 @@ class _PredictScreenState extends State<PredictScreen> {
               0,
               50,
               (val) => setState(() => _temperature = val),
+            ),
+            _buildSlider(
+              'Humidity (%)',
+              _humidity,
+              0,
+              100,
+              (val) => setState(() => _humidity = val),
             ),
             _buildSlider(
               'Nitrogen',
@@ -120,23 +155,6 @@ class _PredictScreenState extends State<PredictScreen> {
               (val) => setState(() => _ph = val),
             ),
 
-            const SizedBox(height: 16),
-            DropdownButtonFormField<String>(
-              initialValue: _soilType,
-              decoration: const InputDecoration(labelText: 'Soil Type'),
-              items: _soilTypes.map((String value) {
-                return DropdownMenuItem<String>(
-                  value: value,
-                  child: Text(value),
-                );
-              }).toList(),
-              onChanged: (newValue) {
-                setState(() {
-                  _soilType = newValue!;
-                });
-              },
-            ),
-
             const SizedBox(height: 24),
             SizedBox(
               width: double.infinity,
@@ -150,24 +168,6 @@ class _PredictScreenState extends State<PredictScreen> {
 
             if (_predictionResult != null) ...[
               const SizedBox(height: 24),
-              if (_predictionResult!['is_offline'] == true)
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  margin: const EdgeInsets.only(bottom: 8),
-                  decoration: BoxDecoration(
-                    color: Colors.orange.shade100,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Row(
-                    children: const [
-                      Icon(Icons.wifi_off, color: Colors.orange),
-                      SizedBox(width: 8),
-                      Expanded(
-                        child: Text('You are offline - showing cached data'),
-                      ),
-                    ],
-                  ),
-                ),
               Card(
                 color: Colors.green.shade50,
                 child: Padding(
@@ -175,7 +175,7 @@ class _PredictScreenState extends State<PredictScreen> {
                   child: Column(
                     children: [
                       Text(
-                        'Predicted Yield: ${_predictionResult!['yield'] ?? 'N/A'}',
+                        'Predicted Yield: ${_predictionResult!['predicted_yield'] ?? 'N/A'} ${_predictionResult!['unit'] ?? ''}',
                         style: const TextStyle(
                           fontSize: 24,
                           fontWeight: FontWeight.bold,
@@ -183,17 +183,33 @@ class _PredictScreenState extends State<PredictScreen> {
                         ),
                       ),
                       const SizedBox(height: 8),
-                      Text(
-                        'Advisory: ${_predictionResult!['advisory'] ?? 'No advisory available.'}',
-                        style: const TextStyle(fontSize: 16),
-                      ),
+                      if (_predictionResult!['alerts'] != null && (_predictionResult!['alerts'] as List).isNotEmpty)
+                        ...(_predictionResult!['alerts'] as List).map((alert) => Padding(
+                          padding: const EdgeInsets.only(bottom: 4.0),
+                          child: Text(
+                            'Alert: $alert',
+                            style: const TextStyle(fontSize: 16, color: Colors.orange),
+                            textAlign: TextAlign.center,
+                          ),
+                        )),
+                      if (_predictionResult!['benchmark_comparison'] != null)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 8.0),
+                          child: Text(
+                            '${_predictionResult!['benchmark_comparison']}',
+                            style: const TextStyle(fontSize: 14, fontStyle: FontStyle.italic),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
                       const SizedBox(height: 8),
                       IconButton(
                         icon: const Icon(Icons.volume_up),
                         onPressed: () {
-                          _speak(
-                            'Predicted Yield is ${_predictionResult!['yield']}. Advisory: ${_predictionResult!['advisory']}',
-                          );
+                          String text = 'Predicted Yield is ${_predictionResult!['predicted_yield']} ${_predictionResult!['unit']}.';
+                          if (_predictionResult!['alerts'] != null) {
+                            text += ' Alerts: ${(_predictionResult!['alerts'] as List).join(", ")}';
+                          }
+                          _speak(text);
                         },
                       ),
                     ],
@@ -222,7 +238,7 @@ class _PredictScreenState extends State<PredictScreen> {
           value: value,
           min: min,
           max: max,
-          divisions: (max - min).toInt(),
+          divisions: (max - min).toInt() == 0 ? 1 : (max - min).toInt(),
           label: value.toStringAsFixed(1),
           onChanged: onChanged,
         ),

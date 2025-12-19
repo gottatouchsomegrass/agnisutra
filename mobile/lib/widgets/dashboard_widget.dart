@@ -1,34 +1,17 @@
-import 'package:fl_chart/fl_chart.dart';
+<<<<<<< HEAD
 import 'package:flutter/material.dart';
-import 'dart:math';
+import 'package:easy_localization/easy_localization.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:geocoding/geocoding.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 import '../services/auth_service.dart';
 import '../services/weather_service.dart';
 // import '../screens/satellite_map_screen.dart';
 import '../screens/select_crop_screen.dart';
-
-class CropData {
-  final String name;
-  final Color statusColor;
-  final double progress;
-  final String moisture;
-  final String temp;
-  final String sownDate;
-  final String lastIrrigation;
-  final String lastPesticide;
-  final String expectedYield;
-
-  CropData({
-    required this.name,
-    required this.statusColor,
-    required this.progress,
-    required this.moisture,
-    required this.temp,
-    required this.sownDate,
-    required this.lastIrrigation,
-    required this.lastPesticide,
-    required this.expectedYield,
-  });
-}
+import '../screens/field_details_screen.dart';
+import 'package:latlong2/latlong.dart';
+import '../models/crop_data.dart';
+import 'home_carousel.dart';
 
 class DashboardWidget extends StatefulWidget {
   const DashboardWidget({super.key});
@@ -39,29 +22,72 @@ class DashboardWidget extends StatefulWidget {
 
 class _DashboardWidgetState extends State<DashboardWidget> {
   String userName = "User";
+  String? _locationName;
   final _authService = AuthService();
   final _weatherService = WeatherService();
   List<WeatherData> _weatherForecast = [];
 
-  final List<CropData> _crops = [
-    CropData(
-      name: 'Sunflower',
-      statusColor: Colors.yellow,
-      progress: 45,
-      moisture: '3%',
-      temp: '28°C',
-      sownDate: '24 Nov',
-      lastIrrigation: '28 Nov',
-      lastPesticide: '29 Nov',
-      expectedYield: '25 Dec',
-    ),
+  final List<Map<String, dynamic>> _cropIcons = const [
+    {
+      'name': 'Sunflower',
+      'icon': 'assets/images/icons/Frame 264.png',
+      'color': Color(0xFFEBC25C),
+    },
+    {
+      'name': 'Mustard',
+      'icon': 'assets/images/icons/Frame 265.png',
+      'color': Color(0xFFEBC25C),
+    },
+    {
+      'name': 'Soyabean',
+      'icon': 'assets/images/icons/Frame 266.png',
+      'color': Color(0xFF96B65D),
+    },
+    {
+      'name': 'Safflower',
+      'icon': 'assets/images/icons/Frame 267.png',
+      'color': Color(0xFFEBC25C),
+    },
+    {
+      'name': 'Sesame',
+      'icon': 'assets/images/icons/Frame 268.png',
+      'color': Color(0xFFC69C6D),
+    },
+    {
+      'name': 'Niger',
+      'icon': 'assets/images/icons/Frame 264 (1).png',
+      'color': Color(0xFFE0E5C1),
+    },
+    {
+      'name': 'Groundnut',
+      'icon': 'assets/images/icons/Frame 267 (1).png',
+      'color': Color(0xFFC69C6D),
+    },
+    {
+      'name': 'Castor',
+      'icon': 'assets/images/icons/Frame 267 (2).png',
+      'color': Color(0xFF96B65D),
+    },
   ];
+
+  List<CropData> _crops = [];
+  late Box<CropData> _cropsBox;
 
   @override
   void initState() {
     super.initState();
     _loadUserName();
     _loadWeather();
+    _loadCrops();
+  }
+
+  Future<void> _loadCrops() async {
+    _cropsBox = await Hive.openBox<CropData>('crops');
+    if (mounted) {
+      setState(() {
+        _crops = _cropsBox.values.toList();
+      });
+    }
   }
 
   Future<void> _loadUserName() async {
@@ -74,20 +100,199 @@ class _DashboardWidgetState extends State<DashboardWidget> {
   }
 
   Future<void> _loadWeather() async {
-    final forecast = await _weatherService.getWeeklyForecast(28.6139, 77.2090);
-    if (mounted) {
-      setState(() {
-        _weatherForecast = forecast;
-      });
+    try {
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
+        // Fallback to default location (New Delhi) if permission denied
+        final forecast = await _weatherService.getWeeklyForecast(
+          28.6139,
+          77.2090,
+        );
+        if (mounted) {
+          setState(() {
+            _weatherForecast = forecast;
+            if (forecast.isNotEmpty) {
+              final currentTemp = '${forecast.first.temp}°C';
+              for (int i = 0; i < _crops.length; i++) {
+                final oldCrop = _crops[i];
+                _crops[i] = CropData(
+                  name: oldCrop.name,
+                  statusColor: oldCrop.statusColor,
+                  progress: oldCrop.progress,
+                  moisture: oldCrop.moisture,
+                  temp: currentTemp,
+                  sownDate: oldCrop.sownDate,
+                  lastIrrigation: oldCrop.lastIrrigation,
+                  lastPesticide: oldCrop.lastPesticide,
+                  expectedYield: oldCrop.expectedYield,
+                );
+              }
+            }
+          });
+        }
+        return;
+      }
+
+      Position position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+      );
+
+      // Get address
+      try {
+        List<Placemark> placemarks = await placemarkFromCoordinates(
+          position.latitude,
+          position.longitude,
+        );
+        if (placemarks.isNotEmpty) {
+          Placemark place = placemarks[0];
+          if (mounted) {
+            setState(() {
+              _locationName =
+                  "${place.subAdministrativeArea ?? place.locality}, ${place.administrativeArea}";
+            });
+          }
+        }
+      } catch (e) {
+        debugPrint("Error getting address: $e");
+      }
+
+      final forecast = await _weatherService.getWeeklyForecast(
+        position.latitude,
+        position.longitude,
+      );
+
+      if (mounted) {
+        setState(() {
+          _weatherForecast = forecast;
+          // Update crop temps
+          if (forecast.isNotEmpty) {
+            final currentTemp = '${forecast.first.temp}°C';
+            // Note: This updates the in-memory list but not Hive.
+            // Ideally we should update Hive or just display current temp dynamically.
+          }
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading weather: $e');
+    }
+  }
+      }
+
+      final position = await Geolocator.getCurrentPosition();
+
+      try {
+        List<Placemark> placemarks = await placemarkFromCoordinates(
+          position.latitude,
+          position.longitude,
+        );
+        if (placemarks.isNotEmpty) {
+          final place = placemarks[0];
+          if (mounted) {
+            setState(() {
+              _locationName = "${place.locality}, ${place.administrativeArea}";
+            });
+          }
+        }
+      } catch (e) {
+        debugPrint("Error getting placemark: $e");
+        if (mounted) {
+          setState(() {
+            _locationName =
+                "${position.latitude.toStringAsFixed(2)}, ${position.longitude.toStringAsFixed(2)}";
+          });
+        }
+      }
+
+      final forecast = await _weatherService.getWeeklyForecast(
+        position.latitude,
+        position.longitude,
+      );
+      debugPrint('Dashboard Weather Forecast: ${forecast.length} items');
+      if (forecast.isNotEmpty) {
+        debugPrint('First item temp: ${forecast.first.temp}');
+      }
+      if (mounted) {
+        setState(() {
+          _weatherForecast = forecast;
+          if (forecast.isNotEmpty) {
+            final currentTemp = '${forecast.first.temp}°C';
+            for (int i = 0; i < _crops.length; i++) {
+              final oldCrop = _crops[i];
+              _crops[i] = CropData(
+                name: oldCrop.name,
+                statusColor: oldCrop.statusColor,
+                progress: oldCrop.progress,
+                moisture: oldCrop.moisture,
+                temp: currentTemp,
+                sownDate: oldCrop.sownDate,
+                lastIrrigation: oldCrop.lastIrrigation,
+                lastPesticide: oldCrop.lastPesticide,
+                expectedYield: oldCrop.expectedYield,
+                latitude: oldCrop.latitude,
+                longitude: oldCrop.longitude,
+              );
+            }
+          }
+        });
+      }
+    } catch (e, stackTrace) {
+      debugPrint('Error loading weather for current location: $e');
+      debugPrint(stackTrace.toString());
+
+      try {
+        // Fallback on error
+        final forecast = await _weatherService.getWeeklyForecast(
+          28.6139,
+          77.2090,
+        );
+        if (mounted) {
+          setState(() {
+            _weatherForecast = forecast;
+            if (forecast.isNotEmpty) {
+              final currentTemp = '${forecast.first.temp}°C';
+              for (int i = 0; i < _crops.length; i++) {
+                final oldCrop = _crops[i];
+                _crops[i] = CropData(
+                  name: oldCrop.name,
+                  statusColor: oldCrop.statusColor,
+                  progress: oldCrop.progress,
+                  moisture: oldCrop.moisture,
+                  temp: currentTemp,
+                  sownDate: oldCrop.sownDate,
+                  lastIrrigation: oldCrop.lastIrrigation,
+                  lastPesticide: oldCrop.lastPesticide,
+                  expectedYield: oldCrop.expectedYield,
+                  latitude: oldCrop.latitude,
+                  longitude: oldCrop.longitude,
+                );
+              }
+            }
+          });
+        }
+      } catch (e) {
+        debugPrint('Error loading fallback weather: $e');
+        // If fallback also fails, we can leave _weatherForecast as empty or show error state
+      }
+>>>>>>> eb9d84b43aa988147346dc664959429ed6a207b3
     }
   }
 
   Future<void> _showAddCropDialog() async {
+<<<<<<< HEAD
     final selectedCropName = await Navigator.push<String>(
+=======
+    final result = await Navigator.push(
+>>>>>>> eb9d84b43aa988147346dc664959429ed6a207b3
       context,
       MaterialPageRoute(builder: (context) => const SelectCropScreen()),
     );
 
+<<<<<<< HEAD
     if (selectedCropName == null) return;
 
     if (!mounted) return;
@@ -210,6 +415,17 @@ class _DashboardWidgetState extends State<DashboardWidget> {
       'Dec',
     ];
     return months[month - 1];
+=======
+    if (result == null) return;
+
+    if (result is CropData) {
+      if (!mounted) return;
+      await _cropsBox.add(result);
+      setState(() {
+        _crops.add(result);
+      });
+    }
+>>>>>>> eb9d84b43aa988147346dc664959429ed6a207b3
   }
 
   @override
@@ -234,7 +450,16 @@ class _DashboardWidgetState extends State<DashboardWidget> {
                 },
               ),
             ),
+<<<<<<< HEAD
             const SizedBox(height: 24),
+=======
+            const SizedBox(height: 16),
+            Text(
+              'weather_in'.tr(args: [_locationName ?? 'locating'.tr()]),
+              style: const TextStyle(color: Colors.white70, fontSize: 14),
+            ),
+            const SizedBox(height: 8),
+>>>>>>> eb9d84b43aa988147346dc664959429ed6a207b3
             SizedBox(
               height: 110,
               child: ListView.builder(
@@ -246,7 +471,11 @@ class _DashboardWidgetState extends State<DashboardWidget> {
               ),
             ),
             const SizedBox(height: 32),
+<<<<<<< HEAD
             _buildTakePictureCard(),
+=======
+            const HomeCarousel(),
+>>>>>>> eb9d84b43aa988147346dc664959429ed6a207b3
             const SizedBox(height: 32),
           ],
         ),
@@ -258,7 +487,11 @@ class _DashboardWidgetState extends State<DashboardWidget> {
     return GestureDetector(
       onTap: _showAddCropDialog,
       child: Padding(
+<<<<<<< HEAD
         padding: const EdgeInsets.only(right: 16.0),
+=======
+        padding: const EdgeInsets.only(right: 18.0),
+>>>>>>> eb9d84b43aa988147346dc664959429ed6a207b3
         child: Column(
           children: [
             Container(
@@ -270,10 +503,17 @@ class _DashboardWidgetState extends State<DashboardWidget> {
               ),
               child: const Icon(Icons.add, color: Colors.white54, size: 30),
             ),
+<<<<<<< HEAD
             const SizedBox(height: 8),
             const Text(
               'Add Crop',
               style: TextStyle(color: Colors.white, fontSize: 12),
+=======
+            const SizedBox(height: 10),
+            Text(
+              'add_crop'.tr(),
+              style: const TextStyle(color: Colors.white, fontSize: 16),
+>>>>>>> eb9d84b43aa988147346dc664959429ed6a207b3
             ),
           ],
         ),
@@ -282,6 +522,7 @@ class _DashboardWidgetState extends State<DashboardWidget> {
   }
 
   Widget _buildCropCircle(CropData crop) {
+<<<<<<< HEAD
     return Padding(
       padding: const EdgeInsets.only(right: 16.0),
       child: Column(
@@ -323,6 +564,72 @@ class _DashboardWidgetState extends State<DashboardWidget> {
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         color: isActive ? const Color(0xFFC5E1A5) : Colors.white24,
+=======
+    final cropInfo = _cropIcons.firstWhere(
+      (info) => crop.name.startsWith(info['name'] as String),
+      orElse: () => <String, dynamic>{},
+    );
+    final iconPath = cropInfo['icon'] as String?;
+
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => FieldDetailsScreen(
+              fieldName: crop.name,
+              location: (crop.latitude != null && crop.longitude != null)
+                  ? LatLng(crop.latitude!, crop.longitude!)
+                  : null,
+            ),
+          ),
+        );
+      },
+      child: Padding(
+        padding: const EdgeInsets.only(right: 16.0),
+        child: Column(
+          children: [
+            Container(
+              width: 60,
+              height: 60,
+              padding: const EdgeInsets.all(0),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                // border: Border.all(color: Colors.amber, width: 2),
+              ),
+              child: Container(
+                decoration: const BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Color(0xFF2C2C2C),
+                ),
+                child: iconPath != null
+                    ? ClipOval(
+                        child: Image.asset(
+                          iconPath,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) =>
+                              const Icon(
+                                Icons.local_florist,
+                                color: Colors.amber,
+                                size: 30,
+                              ),
+                        ),
+                      )
+                    : const Icon(
+                        Icons.local_florist,
+                        color: Colors.amber,
+                        size: 30,
+                      ),
+              ),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              crop.name,
+              style: const TextStyle(color: Colors.white, fontSize: 16),
+            ),
+          ],
+        ),
+>>>>>>> eb9d84b43aa988147346dc664959429ed6a207b3
       ),
     );
   }
@@ -341,7 +648,11 @@ class _DashboardWidgetState extends State<DashboardWidget> {
           Icon(data.icon, color: Colors.amber, size: 28),
           const SizedBox(height: 8),
           Text(
+<<<<<<< HEAD
             '${data.temp} C',
+=======
+            '${data.temp}°C',
+>>>>>>> eb9d84b43aa988147346dc664959429ed6a207b3
             style: const TextStyle(
               color: Colors.white,
               fontWeight: FontWeight.bold,
@@ -362,6 +673,7 @@ class _DashboardWidgetState extends State<DashboardWidget> {
       ),
     );
   }
+<<<<<<< HEAD
 
   Widget _buildTakePictureCard() {
     return Container(
@@ -915,4 +1227,6 @@ class _FlippableCropCardState extends State<FlippableCropCard>
       ],
     );
   }
+=======
+>>>>>>> eb9d84b43aa988147346dc664959429ed6a207b3
 }

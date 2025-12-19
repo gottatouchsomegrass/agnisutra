@@ -18,22 +18,34 @@ export default function LanguageSelector({
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [selectedLang, setSelectedLang] = useState("en");
+  const [pendingLang, setPendingLang] = useState<string | null>(null);
 
   useEffect(() => {
-    const storedLang = localStorage.getItem("app_language");
-    if (!storedLang) {
-      setIsOpen(true);
-    } else {
-      setSelectedLang(storedLang);
-      onComplete();
-    }
+    const timer = setTimeout(() => {
+      const storedLang = localStorage.getItem("app_language");
+      if (!storedLang) {
+        setIsOpen(true);
+      } else {
+        setSelectedLang(storedLang);
+        onComplete();
+      }
+    }, 0);
+    return () => clearTimeout(timer);
   }, [onComplete]);
+
+  useEffect(() => {
+    if (pendingLang) {
+      document.cookie = `locale=${pendingLang}; path=/; max-age=31536000`;
+      window.location.reload();
+    }
+  }, [pendingLang]);
 
   const handleSelect = (langCode: string) => {
     setSelectedLang(langCode);
     localStorage.setItem("app_language", langCode);
     setIsOpen(false);
     onComplete();
+    setPendingLang(langCode);
   };
 
   if (!isOpen) return null;

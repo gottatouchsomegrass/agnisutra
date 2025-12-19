@@ -2,11 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'screens/language_selection_screen.dart';
+<<<<<<< HEAD
+=======
+import 'models/crop_data.dart';
+>>>>>>> eb9d84b43aa988147346dc664959429ed6a207b3
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await EasyLocalization.ensureInitialized();
   await Hive.initFlutter();
+<<<<<<< HEAD
+=======
+  Hive.registerAdapter(CropDataAdapter());
+>>>>>>> eb9d84b43aa988147346dc664959429ed6a207b3
 
   runApp(
     EasyLocalization(

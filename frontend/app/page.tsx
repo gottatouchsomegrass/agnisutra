@@ -5,6 +5,7 @@ import Link from "next/link";
 import LanguageSelector from "./components/LanguageSelector";
 import YieldPredictionWidget from "./components/YieldPredictionWidget";
 import DiseaseDetectionWidget from "./components/DiseaseDetectionWidget";
+import { useTranslations } from "next-intl";
 import {
   ArrowRight,
   Lock,
@@ -15,6 +16,7 @@ import {
 } from "lucide-react";
 
 export default function Home() {
+  const t = useTranslations("landing");
   const [isLanguageSelected, setIsLanguageSelected] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -43,7 +45,7 @@ export default function Home() {
           AGNISUTRA
         </h1>
         <p className="text-[#4ade80] text-sm mt-2 font-medium">
-          Empowering Agriculture
+          {t("empowering")}
         </p>
       </div>
     );
@@ -76,13 +78,13 @@ export default function Home() {
                 href="/login"
                 className="text-sm font-medium text-gray-300 hover:text-white transition-colors"
               >
-                Login
+                {t("login")}
               </Link>
               <Link
                 href="/register"
                 className="bg-[#4ade80] hover:bg-[#22c55e] text-[#050b05] px-4 py-2 rounded-xl text-sm font-bold transition-all hover:shadow-lg hover:shadow-[#4ade80]/20"
               >
-                Get Started
+                {t("getStarted")}
               </Link>
             </div>
           </div>
@@ -93,11 +95,12 @@ export default function Home() {
           <div className="absolute inset-0 bg-linear-to-b from-[#4ade80]/5 to-transparent pointer-events-none" />
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-24 text-center">
             <h1 className="text-4xl md:text-7xl font-bold mb-6 bg-clip-text text-transparent bg-linear-to-r from-white via-[#4ade80] to-[#22c55e] leading-tight">
-              Smart Farming for a <br /> Better Future
+              {t.rich("heroTitle", {
+                br: () => <br />,
+              })}
             </h1>
             <p className="text-xl text-gray-400 max-w-2xl mx-auto mb-10 leading-relaxed">
-              Leverage AI-powered insights for crop yield prediction, disease
-              detection, and real-time monitoring.
+              {t("heroDesc")}
             </p>
 
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
@@ -105,10 +108,10 @@ export default function Home() {
                 href="/dashboard"
                 className="flex items-center gap-2 bg-[#4ade80] hover:bg-[#22c55e] text-[#050b05] px-8 py-4 rounded-xl font-bold text-lg transition-all hover:scale-105 hover:shadow-xl hover:shadow-[#4ade80]/20"
               >
-                Go to Dashboard <ArrowRight size={20} />
+                {t("goToDashboard")} <ArrowRight size={20} />
               </Link>
               <p className="text-sm text-gray-500 flex items-center gap-1 bg-[#1a2e1a]/50 px-4 py-2 rounded-full border border-[#879d7b]/20">
-                <Lock size={14} /> Login required for full access
+                <Lock size={14} /> {t("loginRequired")}
               </p>
             </div>
           </div>
@@ -119,10 +122,10 @@ export default function Home() {
           <div className="flex items-center justify-between mb-8">
             <h2 className="text-2xl font-bold flex items-center gap-2">
               <span className="w-1 h-8 bg-[#4ade80] rounded-full"></span>
-              Free AI Tools
+              {t("freeTools")}
             </h2>
             <span className="text-sm text-[#4ade80] bg-[#4ade80]/10 px-3 py-1 rounded-full border border-[#4ade80]/20 font-medium">
-              No Login Required
+              {t("noLogin")}
             </span>
           </div>
 
@@ -145,9 +148,9 @@ export default function Home() {
         <div className="bg-[#1a2e1a]/20 border-y border-[#879d7b]/10 py-20 mt-12 backdrop-blur-sm">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center mb-16">
-              <h2 className="text-3xl font-bold mb-4">Why Choose AgniSutra?</h2>
+              <h2 className="text-3xl font-bold mb-4">{t("whyChoose")}</h2>
               <p className="text-gray-400">
-                Comprehensive solutions for modern agriculture
+                {t("comprehensive")}
               </p>
             </div>
 
@@ -155,22 +158,22 @@ export default function Home() {
               {[
                 {
                   icon: Satellite,
-                  title: "Satellite Monitoring",
-                  desc: "Real-time NDVI analysis using satellite imagery.",
+                  title: t("satellite.title"),
+                  desc: t("satellite.desc"),
                   color: "text-blue-400",
                   bg: "bg-blue-400/10",
                 },
                 {
                   icon: Bot,
-                  title: "AI Advisory",
-                  desc: "24/7 Chatbot support for instant farming queries.",
+                  title: t("features.advisory.title"),
+                  desc: t("chatbot.desc"),
                   color: "text-[#4ade80]",
                   bg: "bg-[#4ade80]/10",
                 },
                 {
                   icon: BarChart3,
-                  title: "Smart Analytics",
-                  desc: "Data-driven insights to maximize your harvest.",
+                  title: t("analytics.title"),
+                  desc: t("analytics.desc"),
                   color: "text-purple-400",
                   bg: "bg-purple-400/10",
                 },
@@ -204,7 +207,7 @@ export default function Home() {
               <span className="font-bold">AGNISUTRA</span>
             </div>
             <p className="text-gray-500 text-sm">
-              © 2025 AgniSutra. All rights reserved.
+              {t("copyright")}
             </p>
           </div>
         </footer>

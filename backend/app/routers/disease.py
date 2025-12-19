@@ -57,7 +57,7 @@ def get_rag_advice(disease_name: str, language: str = "en") -> str:
         return "Detailed advice not available (RAG system offline)."
 
     try:
-        llm = _get_llm(max_tokens=1000)
+        llm = _get_llm(max_tokens=3000)
         
         retriever = vectorstore.as_retriever(search_kwargs={"k": 3})
         
