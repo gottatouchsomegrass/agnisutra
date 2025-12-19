@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:hive_flutter/hive_flutter.dart';
-import 'screens/language_selection_screen.dart';
-<<<<<<< HEAD
-=======
+import 'screens/splash_screen.dart';
 import 'models/crop_data.dart';
 >>>>>>> eb9d84b43aa988147346dc664959429ed6a207b3
 
@@ -41,7 +39,7 @@ class MyApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.green),
         useMaterial3: true,
       ),
-      home: const LanguageSelectionScreen(),
+      home: const SplashScreen(),
     );
   }
 }

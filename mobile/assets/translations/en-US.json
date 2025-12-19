@@ -119,6 +119,13 @@
   "crop_name": "Crop Name",
   "query": "Query",
   "take_photo": "Take Photo",
-  "choose_gallery": "Choose from Gallery"
->>>>>>> eb9d84b43aa988147346dc664959429ed6a207b3
+  "choose_gallery": "Choose from Gallery",
+  "sunflower": "Sunflower",
+  "mustard": "Mustard",
+  "soyabean": "Soyabean",
+  "safflower": "Safflower",
+  "sesame": "Sesame",
+  "niger": "Niger",
+  "groundnut": "Groundnut",
+  "castor": "Castor"
 }
