@@ -96,9 +96,11 @@ async def update_sensor(data: schemas.SensorData, db: Session = Depends(get_db))
 
 @router.post("/sensor", response_model=schemas.SensorLogOut)
 def receive_sensor(data: schemas.SensorData, db: Session = Depends(get_db)):
-    """Legacy endpoint - redirects to update logic (kept for backward compatibility if needed)."""
+    """Legacy endpoint - kept for backward compatibility. Routes through device_id lookup."""
+    # SensorData has no user_id field — look up user by device_id or store without user
+    user = db.query(models.User).filter(models.User.device_id == data.device_id).first()
     sensor_log = models.SensorLog(
-        user_id=data.user_id,
+        user_id=user.id if user else None,
         moisture=data.moisture,
         nitrogen=data.nitrogen,
         phosphorus=data.phosphorus,

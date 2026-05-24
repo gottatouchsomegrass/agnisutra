@@ -120,6 +120,7 @@ class FertilizerRecommendationInput(BaseModel):
     temperature: float
     ph: float
     moisture: float
+    field_id: Optional[int] = None
 
 
 class FertilizerRecommendationOutput(BaseModel):
@@ -127,6 +128,7 @@ class FertilizerRecommendationOutput(BaseModel):
     recommended_P: float
     recommended_K: float
     unit: str = "kg/ha"
+    record_id: Optional[int] = None
 
 
 class KrishiChatInput(BaseModel):

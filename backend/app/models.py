@@ -68,9 +68,13 @@ class YieldRecord(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    field_id = Column(Integer, ForeignKey("fields.id"), nullable=True)
     crop = Column(String, index=True)
-    area_hectare = Column(Float)
-    observed_yield = Column(Float, nullable=True)
+    target_yield = Column(Float, nullable=True)
+    recommended_N = Column(Float, nullable=True)
+    recommended_P = Column(Float, nullable=True)
+    recommended_K = Column(Float, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     user = relationship("User", backref="yields")
+    field = relationship("Field", backref="yield_records")

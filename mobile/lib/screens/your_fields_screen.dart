@@ -3,6 +3,7 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:latlong2/latlong.dart';
 import 'add_field_screen.dart';
 import 'field_details_screen.dart';
+import '../services/field_service.dart';
 
 class YourFieldsScreen extends StatefulWidget {
   const YourFieldsScreen({super.key});
@@ -15,6 +16,7 @@ class _YourFieldsScreenState extends State<YourFieldsScreen> {
   List<Map<String, dynamic>> _fields = [];
   late Box _box;
   bool _isLoading = true;
+  final FieldService _fieldService = FieldService();
 
   @override
   void initState() {
@@ -37,12 +39,57 @@ class _YourFieldsScreenState extends State<YourFieldsScreen> {
         }).toList();
         _isLoading = false;
       });
+      // Sync any un-synced local fields to the backend
+      _syncExistingFields();
     } else {
       setState(() {
         _fields = [];
         _isLoading = false;
       });
     }
+  }
+
+  Future<void> _syncExistingFields() async {
+    for (int i = 0; i < _fields.length; i++) {
+      final field = _fields[i];
+      if (field['synced'] == true) continue;
+
+      final location = field['location'] as LatLng?;
+      if (location == null) continue;
+
+      // Extract crop from name if no separate crop key (old fields store "Castor (Field 1)")
+      String crop = field['crop'] ?? _extractCropFromName(field['name'] ?? '');
+      double area = (field['area_acres'] as num?)?.toDouble() ?? 1.0;
+
+      final result = await _fieldService.createField(
+        name: field['name'] ?? 'Field ${i + 1}',
+        crop: crop,
+        areaAcres: area,
+        lat: location.latitude,
+        lon: location.longitude,
+      );
+
+      if (result != null) {
+        _fields[i]['synced'] = true;
+        // Store backend field ID
+        if (result['field'] != null) {
+          _fields[i]['backend_id'] = result['field']['id'];
+        }
+      }
+    }
+    _saveFields();
+  }
+
+  String _extractCropFromName(String name) {
+    // Old fields have names like "Castor (Field 1)" — extract the crop part
+    const knownCrops = [
+      'Sunflower', 'Mustard', 'Soyabean', 'Safflower',
+      'Sesame', 'Niger', 'Groundnut', 'Castor',
+    ];
+    for (final crop in knownCrops) {
+      if (name.toLowerCase().contains(crop.toLowerCase())) return crop;
+    }
+    return 'Sunflower'; // fallback
   }
 
   Future<void> _saveFields() async {
@@ -109,8 +156,30 @@ class _YourFieldsScreenState extends State<YourFieldsScreen> {
                     );
 
                     if (result != null && mounted) {
+                      final fieldData = result as Map<String, dynamic>;
+
+                      // Sync to backend
+                      final location = fieldData['location'] as LatLng?;
+                      if (location != null) {
+                        final apiResult = await _fieldService.createField(
+                          name: fieldData['name'] ?? newFieldName,
+                          crop: fieldData['crop'] ?? 'Sunflower',
+                          areaAcres:
+                              (fieldData['area_acres'] as num?)?.toDouble() ??
+                              1.0,
+                          lat: location.latitude,
+                          lon: location.longitude,
+                        );
+                        if (apiResult != null) {
+                          fieldData['synced'] = true;
+                          if (apiResult['field'] != null) {
+                            fieldData['backend_id'] = apiResult['field']['id'];
+                          }
+                        }
+                      }
+
                       setState(() {
-                        _fields.add(result as Map<String, dynamic>);
+                        _fields.add(fieldData);
                         _saveFields();
                       });
                     }
@@ -141,6 +210,7 @@ class _YourFieldsScreenState extends State<YourFieldsScreen> {
                       builder: (context) => FieldDetailsScreen(
                         fieldName: _fields[index]['name'],
                         location: _fields[index]['location'],
+                        backendFieldId: _fields[index]['backend_id'] as int?,
                       ),
                     ),
                   );
@@ -149,6 +219,11 @@ class _YourFieldsScreenState extends State<YourFieldsScreen> {
                     if (result is Map &&
                         result.containsKey('delete') &&
                         result['delete'] == true) {
+                      // Delete from backend
+                      final backendId = _fields[index]['backend_id'] as int?;
+                      if (backendId != null) {
+                        _fieldService.deleteField(backendId);
+                      }
                       setState(() {
                         _fields.removeAt(index);
                         _saveFields();

@@ -26,13 +26,15 @@ class CropDataAdapter extends TypeAdapter<CropData> {
       lastIrrigation: fields[6] as String,
       lastPesticide: fields[7] as String,
       expectedYield: fields[8] as String,
+      latitude: fields[9] as double?,
+      longitude: fields[10] as double?,
     );
   }
 
   @override
   void write(BinaryWriter writer, CropData obj) {
     writer
-      ..writeByte(9)
+      ..writeByte(11)
       ..writeByte(0)
       ..write(obj.name)
       ..writeByte(1)
@@ -50,7 +52,11 @@ class CropDataAdapter extends TypeAdapter<CropData> {
       ..writeByte(7)
       ..write(obj.lastPesticide)
       ..writeByte(8)
-      ..write(obj.expectedYield);
+      ..write(obj.expectedYield)
+      ..writeByte(9)
+      ..write(obj.latitude)
+      ..writeByte(10)
+      ..write(obj.longitude);
   }
 
   @override

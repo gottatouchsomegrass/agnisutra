@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 import '../constants.dart';
 
 class WeatherData {
@@ -27,6 +28,7 @@ class WeatherService {
     double lat,
     double lon,
   ) async {
+    final box = await Hive.openBox('weather_cache');
     try {
       String? token = await _storage.read(key: 'access_token');
 
@@ -38,15 +40,24 @@ class WeatherService {
             'Authorization': 'Bearer $token',
             'Content-Type': 'application/json',
           },
+          receiveTimeout: const Duration(seconds: 10),
+          sendTimeout: const Duration(seconds: 10),
         ),
       );
 
       if (response.statusCode == 200) {
+        // Cache for offline use
+        await box.put('last_weather', response.data);
         return response.data;
       }
       return null;
     } catch (e) {
-      print('Backend Weather Service Error: $e');
+      print('Backend Weather Service Error: $e. Trying Hive cache...');
+      // Return cached weather on connection failure
+      final cached = box.get('last_weather');
+      if (cached != null) {
+        return Map<String, dynamic>.from(cached);
+      }
       return null;
     }
   }
@@ -62,6 +73,10 @@ class WeatherService {
           'timezone': 'auto',
           'forecast_days': 7,
         },
+        options: Options(
+          receiveTimeout: const Duration(seconds: 10),
+          sendTimeout: const Duration(seconds: 10),
+        ),
       );
 
       if (response.statusCode == 200) {
@@ -89,10 +104,10 @@ class WeatherService {
         return forecast;
       }
       return [];
-    } catch (e, stackTrace) {
-      debugPrint('Error fetching weather: $e');
-      debugPrint(stackTrace.toString());
-      rethrow;
+    } catch (e) {
+      debugPrint('Error fetching weekly forecast: $e');
+      // Return empty list gracefully — no crash
+      return [];
     }
   }
 

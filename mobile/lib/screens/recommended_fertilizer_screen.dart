@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
-// import 'package:hive_flutter/hive_flutter.dart';
 import '../models/crop_data.dart';
+import '../services/field_service.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
 class RecommendedFertilizerScreen extends StatefulWidget {
@@ -26,6 +26,7 @@ class _RecommendedFertilizerScreenState
   List<Map<String, dynamic>> _fields = [];
   String? _selectedField;
   bool _isLoading = true;
+  final FieldService _fieldService = FieldService();
 
   @override
   void initState() {
@@ -140,7 +141,7 @@ class _RecommendedFertilizerScreenState
               child: ElevatedButton(
                 onPressed: _selectedField == null
                     ? null
-                    : () {
+                    : () async {
                         final selectedFieldData = _fields.firstWhere(
                           (element) => element['name'] == _selectedField,
                           orElse: () => {},
@@ -167,6 +168,16 @@ class _RecommendedFertilizerScreenState
                             ),
                           );
                           return;
+                        }
+
+                        // Link the yield record to the selected field's backend ID
+                        final recordId = widget.result['record_id'];
+                        final backendId = selectedFieldData['backend_id'] as int?;
+                        if (recordId != null && backendId != null) {
+                          await _fieldService.linkRecordToField(
+                            recordId as int,
+                            backendId,
+                          );
                         }
 
                         final cropData = CropData(

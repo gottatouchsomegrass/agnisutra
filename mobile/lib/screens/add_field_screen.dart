@@ -23,6 +23,19 @@ class _AddFieldScreenState extends State<AddFieldScreen> {
   bool _isLoadingLocation = true;
   final MapController _mapController = MapController();
   late TextEditingController _nameController;
+  final TextEditingController _areaController = TextEditingController();
+  String _selectedCrop = 'Sunflower';
+
+  static const List<String> _crops = [
+    'Sunflower',
+    'Mustard',
+    'Soyabean',
+    'Safflower',
+    'Sesame',
+    'Niger',
+    'Groundnut',
+    'Castor',
+  ];
 
   @override
   void initState() {
@@ -39,6 +52,7 @@ class _AddFieldScreenState extends State<AddFieldScreen> {
   @override
   void dispose() {
     _nameController.dispose();
+    _areaController.dispose();
     super.dispose();
   }
 
@@ -103,6 +117,62 @@ class _AddFieldScreenState extends State<AddFieldScreen> {
               decoration: InputDecoration(
                 filled: true,
                 fillColor: const Color(0xFF3E3E3E),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide.none,
+                ),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 14,
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Crop',
+              style: TextStyle(color: Colors.white70, fontSize: 14),
+            ),
+            const SizedBox(height: 8),
+            DropdownButtonFormField<String>(
+              value: _selectedCrop,
+              dropdownColor: const Color(0xFF3E3E3E),
+              style: const TextStyle(color: Colors.white),
+              decoration: InputDecoration(
+                filled: true,
+                fillColor: const Color(0xFF3E3E3E),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide.none,
+                ),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 14,
+                ),
+              ),
+              items: _crops
+                  .map((c) => DropdownMenuItem(value: c, child: Text(c)))
+                  .toList(),
+              onChanged: (val) {
+                if (val != null) setState(() => _selectedCrop = val);
+              },
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Area (acres)',
+              style: TextStyle(color: Colors.white70, fontSize: 14),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _areaController,
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
+              style: const TextStyle(color: Colors.white),
+              decoration: InputDecoration(
+                filled: true,
+                fillColor: const Color(0xFF3E3E3E),
+                hintText: 'e.g. 2.5',
+                hintStyle: const TextStyle(color: Colors.white30),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
                   borderSide: BorderSide.none,
@@ -190,9 +260,19 @@ class _AddFieldScreenState extends State<AddFieldScreen> {
                       );
                       return;
                     }
-                    // Save logic
+                    final area = double.tryParse(_areaController.text.trim());
+                    if (area == null || area <= 0) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Please enter a valid area in acres'),
+                        ),
+                      );
+                      return;
+                    }
                     Navigator.pop(context, {
                       'name': _nameController.text.trim(),
+                      'crop': _selectedCrop,
+                      'area_acres': area,
                       'location': _currentLocation,
                     });
                   },

@@ -1,17 +1,10 @@
 import 'package:flutter/material.dart';
-<<<<<<< HEAD
-// import 'package:easy_localization/easy_localization.dart';
-=======
 import 'package:easy_localization/easy_localization.dart';
->>>>>>> eb9d84b43aa988147346dc664959429ed6a207b3
 import 'package:image_picker/image_picker.dart';
 import '../services/auth_service.dart';
 import '../constants.dart';
 import 'login_screen.dart';
-<<<<<<< HEAD
-=======
 import 'register_screen.dart';
->>>>>>> eb9d84b43aa988147346dc664959429ed6a207b3
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -24,7 +17,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final AuthService _authService = AuthService();
   final ImagePicker _picker = ImagePicker();
   Map<String, dynamic>? _userProfile;
-  bool _isLoading = false; // Default to false to show Guest UI immediately
+  bool _isLoading = false;
   bool _isEditing = false;
   int _imageRefreshKey = 0;
 
@@ -37,7 +30,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Future<void> _checkLoginStatus() async {
     final token = await _authService.getToken();
     if (token != null) {
-      // Try to get cached profile first without loading spinner
       final cachedProfile = await _authService.getUserProfile(
         forceRefresh: false,
       );
@@ -45,17 +37,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
       if (mounted) {
         setState(() {
           _userProfile = cachedProfile;
-          // Only show loader if we have NO data at all
           _isLoading = _userProfile == null;
         });
       }
 
-      // If we didn't have cached data, or just to be sure, try fetching fresh data
-      // But if we already showed cached data, this happens in background
       if (_userProfile == null) {
         _fetchProfile();
       } else {
-        // We have data, but let's try to update it silently in the background
         _authService
             .getUserProfile(forceRefresh: true)
             .then((freshProfile) {
@@ -66,7 +54,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
               }
             })
             .catchError((e) {
-              // Backend unreachable? No problem, user is already seeing cached data.
               debugPrint("Background profile update failed: $e");
             });
       }
@@ -83,7 +70,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
         });
       }
     } catch (e) {
-      // If fetch fails and we are loading, stop loading
       if (mounted && _isLoading) {
         setState(() {
           _isLoading = false;
@@ -116,13 +102,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
             SnackBar(
               content: Text(
                 isProfilePhoto
-<<<<<<< HEAD
-                    ? 'Profile photo updated'
-                    : 'Cover photo updated',
-=======
                     ? 'profile_photo_updated'.tr()
                     : 'cover_photo_updated'.tr(),
->>>>>>> eb9d84b43aa988147346dc664959429ed6a207b3
               ),
               backgroundColor: Colors.green,
             ),
@@ -131,13 +112,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
       } else {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-<<<<<<< HEAD
-            const SnackBar(
-              content: Text('Failed to update photo'),
-=======
             SnackBar(
               content: Text('failed_update_photo'.tr()),
->>>>>>> eb9d84b43aa988147346dc664959429ed6a207b3
               backgroundColor: Colors.red,
             ),
           );
@@ -145,7 +121,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         setState(() => _isLoading = false);
       }
     } catch (e) {
-      print('Error picking image: $e');
+      debugPrint('Error picking image: $e');
       setState(() => _isLoading = false);
     }
   }
@@ -155,15 +131,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: const Color(0xFF1E1E1E),
-<<<<<<< HEAD
-        title: const Text(
-          'Delete Account',
-          style: TextStyle(color: Colors.white),
-        ),
-        content: const Text(
-          'Are you sure you want to delete your account? This action cannot be undone.',
-          style: TextStyle(color: Colors.white70),
-=======
         title: Text(
           'delete_account'.tr(),
           style: const TextStyle(color: Colors.white),
@@ -171,20 +138,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
         content: Text(
           'delete_account_confirmation'.tr(),
           style: const TextStyle(color: Colors.white70),
->>>>>>> eb9d84b43aa988147346dc664959429ed6a207b3
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-<<<<<<< HEAD
-            child: const Text('Cancel', style: TextStyle(color: Colors.white)),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text(
-              'Delete',
-              style: TextStyle(color: Colors.redAccent),
-=======
             child: Text(
               'cancel'.tr(),
               style: const TextStyle(color: Colors.white),
@@ -195,7 +152,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
             child: Text(
               'delete'.tr(),
               style: const TextStyle(color: Colors.redAccent),
->>>>>>> eb9d84b43aa988147346dc664959429ed6a207b3
             ),
           ),
         ],
@@ -284,7 +240,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           TextButton(
             onPressed: () async {
               if (formKey.currentState?.validate() ?? false) {
-                Navigator.pop(dialogContext); // Close dialog first
+                Navigator.pop(dialogContext);
                 setState(() => _isLoading = true);
 
                 final errorMessage = await _authService.changePassword(
@@ -301,9 +257,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             ? 'Password changed successfully'
                             : errorMessage,
                       ),
-                      backgroundColor: errorMessage == null
-                          ? Colors.green
-                          : Colors.red,
+                      backgroundColor:
+                          errorMessage == null ? Colors.green : Colors.red,
                     ),
                   );
                 }
@@ -319,8 +274,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-<<<<<<< HEAD
-=======
   Widget _buildGuestProfile() {
     return Scaffold(
       backgroundColor: const Color(0xFF1E1E1E),
@@ -443,7 +396,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
->>>>>>> eb9d84b43aa988147346dc664959429ed6a207b3
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
@@ -455,18 +407,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
       );
     }
 
-<<<<<<< HEAD
-=======
     if (_userProfile == null) {
       return _buildGuestProfile();
     }
 
->>>>>>> eb9d84b43aa988147346dc664959429ed6a207b3
     final name = _userProfile?['name'] ?? 'User';
     final role = _userProfile?['role'] ?? 'Farmer';
     final email = _userProfile?['email'] ?? 'No email';
-    // final city = _userProfile?['city'] ?? 'Unknown Location';
-    // final deviceId = _userProfile?['device_id'] ?? 'Not Linked';
     final joinedDate = _userProfile?['created_at'] != null
         ? DateTime.parse(
             _userProfile!['created_at'],
@@ -476,7 +423,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     String? profilePhoto = _userProfile?['profile_photo'];
     String? coverPhoto = _userProfile?['cover_photo'];
 
-    // Helper to construct full URL
     String? getFullUrl(String? path) {
       if (path == null) return null;
       if (path.startsWith('http')) return '$path?v=$_imageRefreshKey';
@@ -487,7 +433,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     coverPhoto = getFullUrl(coverPhoto);
 
     return Scaffold(
-      backgroundColor: const Color(0xFF050F06), // Very dark green background
+      backgroundColor: const Color(0xFF050F06),
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -503,7 +449,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
       body: SingleChildScrollView(
         child: Column(
           children: [
-            // Header Section with Stack
             SizedBox(
               height: 220,
               child: Stack(
@@ -525,7 +470,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 ? NetworkImage(coverPhoto)
                                 : const NetworkImage(
                                     'https://images.unsplash.com/photo-1500382017468-9049fed747ef?q=80&w=1000&auto=format&fit=crop',
-                                  ), // Farm cover fallback
+                                  ),
                             fit: BoxFit.cover,
                           ),
                         ),
@@ -537,7 +482,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   child: Container(
                                     padding: const EdgeInsets.all(4),
                                     decoration: BoxDecoration(
-                                      color: Colors.black.withOpacity(0.5),
+                                      color: Colors.black.withValues(
+                                        alpha: 0.5,
+                                      ),
                                       shape: BoxShape.circle,
                                     ),
                                     child: const Icon(
@@ -566,7 +513,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             end: Alignment.bottomCenter,
                             colors: [
                               Colors.transparent,
-                              Colors.black.withOpacity(0.3),
+                              Colors.black.withValues(alpha: 0.3),
                             ],
                           ),
                         ),
@@ -586,7 +533,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           Container(
                             padding: const EdgeInsets.all(4),
                             decoration: const BoxDecoration(
-                              color: Color(0xFF050F06), // Match background
+                              color: Color(0xFF050F06),
                               shape: BoxShape.circle,
                             ),
                             child: CircleAvatar(
@@ -595,7 +542,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   ? NetworkImage(profilePhoto)
                                   : const NetworkImage(
                                       'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=200&auto=format&fit=crop',
-                                    ), // Farmer face fallback
+                                    ),
                             ),
                           ),
                           if (_isEditing)
@@ -639,11 +586,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   const SizedBox(height: 4),
                   Text(
                     role.toString().toUpperCase(),
-                    style: const TextStyle(color: Colors.white70, fontSize: 14),
+                    style: const TextStyle(
+                      color: Colors.white70,
+                      fontSize: 14,
+                    ),
                   ),
                   Text(
                     'Joined on $joinedDate',
-                    style: const TextStyle(color: Colors.white54, fontSize: 12),
+                    style: const TextStyle(
+                      color: Colors.white54,
+                      fontSize: 12,
+                    ),
                   ),
                   const SizedBox(height: 20),
 
@@ -698,10 +651,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   const Divider(color: Colors.white24),
                   _buildDetailRow('EMAIL ID', email),
                   const Divider(color: Colors.white24),
-                  // _buildDetailRow('LOCATION', city),
-                  // const Divider(color: Colors.white24),
-
-                  // _buildDetailRow('DEVICE ID', deviceId),
                   const SizedBox(height: 60),
 
                   // Footer Buttons
@@ -749,7 +698,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           ),
                           child: const Text(
                             'Delete Account',
-                            style: TextStyle(color: Colors.white, fontSize: 16),
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 16,
+                            ),
                           ),
                         ),
                       ),

@@ -415,7 +415,8 @@ def get_yield_prediction_get(
     humidity: float,
     ph: float,
     rainfall: float,
-    crop: str
+    crop: str,
+    db: Session = Depends(get_db)
 ):
     # Map simplified GET parameters to full KrishiYieldInput schema with defaults
     data = schemas.KrishiYieldInput(
@@ -437,18 +438,15 @@ def get_yield_prediction_get(
         irrigation_events=0,
         ndvi_flowering=0.5,
         ndvi_peak=0.7,
-        ndvi_veg_slope=0.1
+        ndvi_veg_slope=0.1,
+        soil_moisture_pct=humidity  # Use humidity as proxy
     )
-    return predict_yield(data)
+    return _do_predict_yield(data, db)
 
-@router.post("/predict", response_model=schemas.KrishiYieldOut)
-def predict_yield(data: schemas.KrishiYieldInput):
-    # NOTE: The Yield Prediction Model is currently being replaced by the Fertilizer Recommender.
-    # For now, we return a dummy response or raise an error.
-    # raise HTTPException(status_code=503, detail="Yield Prediction is temporarily unavailable. Please use /recommend for fertilizer optimization.")
-    
-    # Fallback: Return a dummy yield based on benchmark for now so frontend doesn't crash
+def _do_predict_yield(data: schemas.KrishiYieldInput, db: Session):
+    """Core yield prediction logic — returns benchmark value."""
     bench = CROP_BENCHMARK_YIELD.get(data.crop.lower(), 2.0)
+
     return {
         "predicted_yield": bench,
         "unit": "t/ha",
@@ -456,8 +454,16 @@ def predict_yield(data: schemas.KrishiYieldInput):
         "benchmark_comparison": "Model update in progress."
     }
 
+@router.post("/predict", response_model=schemas.KrishiYieldOut)
+def predict_yield(data: schemas.KrishiYieldInput, db: Session = Depends(get_db)):
+    return _do_predict_yield(data, db)
+
 @router.post("/recommend", response_model=schemas.FertilizerRecommendationOutput)
-def recommend_fertilizer(data: schemas.FertilizerRecommendationInput):
+def recommend_fertilizer(
+    data: schemas.FertilizerRecommendationInput,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
     model = ml_models.get("fertilizer_model")
     preprocessor = ml_models.get("preprocessor")
 
@@ -466,9 +472,6 @@ def recommend_fertilizer(data: schemas.FertilizerRecommendationInput):
     if not preprocessor:
         raise HTTPException(status_code=500, detail="Preprocessor not loaded")
 
-    # Prepare DataFrame matching training columns:
-    # ['crop', 'yield_t_ha', 'soil_N_status_kg_ha', 'soil_P_status_kg_ha', 'soil_K_status_kg_ha', 'mean_temp_gs_C', 'soil_pH', 'soil_moisture_pct']
-    
     input_data = {
         "crop": [data.crop],
         "yield_t_ha": [data.target_yield],
@@ -479,32 +482,112 @@ def recommend_fertilizer(data: schemas.FertilizerRecommendationInput):
         "soil_pH": [data.ph],
         "soil_moisture_pct": [data.moisture]
     }
-    
+
     df = pd.DataFrame(input_data)
-    
+
     try:
-        # 1. Preprocess
         X_transformed = preprocessor.transform(df)
-        
-        # 2. Predict (Returns [[N, P, K]])
         prediction = model.predict(X_transformed)
         n_val, p_val, k_val = prediction[0]
-        
-        # Ensure non-negative
+
         n_val = max(0.0, float(n_val))
         p_val = max(0.0, float(p_val))
         k_val = max(0.0, float(k_val))
-        
+
+        # Persist the recommendation
+        record = models.YieldRecord(
+            user_id=current_user.id,
+            field_id=data.field_id,
+            crop=data.crop,
+            target_yield=data.target_yield,
+            recommended_N=round(n_val, 2),
+            recommended_P=round(p_val, 2),
+            recommended_K=round(k_val, 2),
+        )
+        db.add(record)
+        db.commit()
+        db.refresh(record)
+
         return {
             "recommended_N": round(n_val, 2),
             "recommended_P": round(p_val, 2),
             "recommended_K": round(k_val, 2),
-            "unit": "kg/ha"
+            "unit": "kg/ha",
+            "record_id": record.id
         }
-        
+
     except Exception as e:
         print(f"Recommendation Error: {e}")
         raise HTTPException(status_code=400, detail=f"Recommendation error: {str(e)}")
+
+
+@router.patch("/yield-records/{record_id}/link-field")
+def link_yield_record_to_field(
+    record_id: int,
+    field_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    """Link an existing yield record to a field."""
+    record = db.query(models.YieldRecord).filter(
+        models.YieldRecord.id == record_id,
+        models.YieldRecord.user_id == current_user.id
+    ).first()
+    if not record:
+        raise HTTPException(status_code=404, detail="Yield record not found")
+    record.field_id = field_id
+    db.commit()
+    return {"status": "ok", "record_id": record_id, "field_id": field_id}
+
+
+@router.get("/fields/{field_id}/recommendation")
+def get_field_recommendation(
+    field_id: int,
+    crop: Optional[str] = None,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    """Get the latest fertilizer recommendation for a field."""
+    # First try by field_id
+    record = (
+        db.query(models.YieldRecord)
+        .filter(
+            models.YieldRecord.field_id == field_id,
+            models.YieldRecord.user_id == current_user.id
+        )
+        .order_by(models.YieldRecord.created_at.desc())
+        .first()
+    )
+
+    # If no field-specific record, get the latest for this user's crop on this field
+    if not record:
+        # Use the crop query param if provided, otherwise look up from the field
+        crop_name = crop
+        if not crop_name:
+            field = db.query(models.Field).filter(models.Field.id == field_id).first()
+            if field:
+                crop_name = field.crop
+        if crop_name:
+            record = (
+                db.query(models.YieldRecord)
+                .filter(
+                    models.YieldRecord.user_id == current_user.id,
+                    models.YieldRecord.crop.ilike(f"%{crop_name}%")
+                )
+                .order_by(models.YieldRecord.created_at.desc())
+                .first()
+            )
+
+    if not record:
+        raise HTTPException(status_code=404, detail="No recommendation found for this field")
+    return {
+        "crop": record.crop,
+        "target_yield": record.target_yield,
+        "recommended_N": record.recommended_N,
+        "recommended_P": record.recommended_P,
+        "recommended_K": record.recommended_K,
+        "created_at": record.created_at.isoformat() if record.created_at else None,
+    }
 
 
 @router.post("/chat", response_model=schemas.KrishiChatOut)
@@ -674,6 +757,24 @@ def get_fields(
 ):
     return db.query(models.Field).filter(models.Field.user_id == current_user.id).all()
 
+@router.delete("/fields/{field_id}")
+def delete_field(
+    field_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    field = db.query(models.Field).filter(
+        models.Field.id == field_id,
+        models.Field.user_id == current_user.id
+    ).first()
+    if not field:
+        raise HTTPException(status_code=404, detail="Field not found")
+    # Also remove linked yield records
+    db.query(models.YieldRecord).filter(models.YieldRecord.field_id == field_id).delete()
+    db.delete(field)
+    db.commit()
+    return {"status": "ok", "deleted_field_id": field_id}
+
 @router.get("/fields/{field_id}/analysis")
 def analyze_field(
     field_id: int,
@@ -688,7 +789,7 @@ def analyze_field(
     weather_data = fetch_weather(field.lat, field.lon)
     
     # Yield Prediction (using current weather as approximation for now)
-    yield_pred = predict_yield(schemas.KrishiYieldInput(
+    yield_pred = _do_predict_yield(schemas.KrishiYieldInput(
         crop=field.crop,
         maturity_days=120,
         mean_temp_gs_C=weather_data["stats"]["mean_temp_gs_C"],
@@ -709,7 +810,7 @@ def analyze_field(
         ndvi_peak=ndvi_data.get("ndvi_peak", 0.7),
         ndvi_veg_slope=ndvi_data.get("ndvi_veg_slope", 0.1),
         soil_moisture_pct=weather_data.get("humidity", 50.0) # Using humidity as proxy for now
-    ))
+    ), db)
     
     return {
         "field_id": field.id,

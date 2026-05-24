@@ -8,8 +8,8 @@ from typing import Dict, Any, Optional
 from fastapi import APIRouter, File, UploadFile, Form, HTTPException
 from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
-from langchain.chains import RetrievalQA
-from langchain.prompts import PromptTemplate
+from langchain_classic.chains import RetrievalQA
+from langchain_classic.prompts import PromptTemplate
 from ..ml import ml_models
 
 load_dotenv()
