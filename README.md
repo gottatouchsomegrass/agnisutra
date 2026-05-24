@@ -36,6 +36,7 @@ Farmers often make critical crop decisions with delayed, fragmented, or unavaila
 ├── frontend/               # Next.js web interface
 ├── mobile/                 # Flutter mobile application
 ├── API_DOCUMENTATION.md    # API endpoint reference
+├── DB_SCHEMA.md            # Database schema overview
 ├── INTEGRATION_GUIDE.md    # Frontend/IoT integration guide
 ├── SETUP.md                # Detailed setup instructions
 └── judge_evidence/         # Benchmark and model evidence artifacts
